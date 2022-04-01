@@ -33,7 +33,7 @@ if [ "$REPO" = "product-is" ]; then
   echo ""
   echo "Applying PR $PULL_NUMBER as a diff..."
   echo "=========================================================="
-  wget -q --output-document=diff.diff $PR_LINK.diff
+  wget -q --output-document=diff.diff $PR_LINK.patch
   cat diff.diff
   echo "=========================================================="
   git apply diff.diff || {
@@ -107,13 +107,18 @@ else
     echo "Checking out for 4.7.x branch..."
     echo "=========================================================="
     git checkout 4.7.x
+  elif [ "$REPO" = "carbon-deployment" ]; then
+    echo ""
+    echo "Checking out for 4.x.x branch in carbon-deployment..."
+    echo "=========================================================="
+    git checkout 4.x.x
   fi
   DEPENDENCY_VERSION=$(mvn -q -Dexec.executable=echo -Dexec.args='${project.version}' --non-recursive exec:exec)
   echo "Dependency Version: $DEPENDENCY_VERSION"
   echo ""
   echo "Applying PR $PULL_NUMBER as a diff..."
   echo "=========================================================="
-  wget -q --output-document=diff.diff $PR_LINK.diff
+  wget -q --output-document=diff.diff $PR_LINK.patch
   cat diff.diff
   echo "=========================================================="
   git apply diff.diff || {
