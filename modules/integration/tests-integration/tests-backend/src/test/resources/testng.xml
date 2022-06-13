@@ -287,18 +287,6 @@
             <class name="org.wso2.identity.integration.test.oauth2.OAuth2ServiceAuthCodeGrantOpenIdTestCase"/>
         </classes>
     </test>
-    <test name="is-analytics-tests-deprecated-config" preserve-order="true" parallel="false" group-by-instances="true">
-        <classes>
-            <class name="org.wso2.identity.integration.test.analytics.base.AnalyticsBaseTestCase"/>
-            <class name="org.wso2.identity.integration.test.analytics.authentication.AnalyticsLoginTestCase"/>
-            <class name="org.wso2.identity.integration.test.analytics.oauth.OAuth2TokenIssuance"/>
-        </classes>
-    </test>
-    <test name="is-analytics-tests-new-config" preserve-order="true" parallel="false" group-by-instances="true">
-        <classes>
-            <class name="org.wso2.identity.integration.test.analytics.authentication.AnalyticsLoginDataPublishHandlingTestCase"/>
-        </classes>
-    </test>
     <test name="is-tests-email-username" preserve-order="true" parallel="false" group-by-instances="true">
         <classes>
             <class name="org.wso2.identity.integration.test.user.mgt.CARBON15051EmailLoginTestCase"/>
@@ -306,6 +294,7 @@
     </test>
     <test name="is-tests-with-individual-configuration-changes" preserve-order="true" parallel="false" group-by-instances="true">
         <classes>
+            <class name="org.wso2.identity.integration.test.application.mgt.ServiceProviderUserRoleValidationTestCase"/>
             <class name="org.wso2.identity.integration.test.saml.RegistryMountTestCase"/>
             <class name="org.wso2.identity.integration.test.provisioning.DBSeperationTestCase"/>
             <class name="org.wso2.identity.integration.test.oauth2.OAuth2ServiceAuthCodeGrantTestCase"/>

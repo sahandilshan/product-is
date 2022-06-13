@@ -118,23 +118,11 @@ public class OAuth2DeviceFlowTestCase extends OAuth2ServiceAbstractIntegrationTe
         Assert.assertNotNull(userCode, "user_code is null");
     }
 
-    @Test(groups = "wso2.is", description = "Send approval post request", dependsOnMethods = "testSendDeviceAuthorize")
+    @Test(groups = "wso2.is", description = "Send unapproved token", dependsOnMethods = "testSendDeviceAuthorize")
     public void testNonUsedDeviceTokenRequest() throws Exception {
 
-        List<NameValuePair> urlParameters = new ArrayList<>();
-        urlParameters.add(new BasicNameValuePair(OAuth2Constant.GRANT_TYPE_NAME,
-                "urn:ietf:params:oauth:grant-type:device_code"));
-        urlParameters.add(new BasicNameValuePair(DEVICE_CODE, deviceCode));
-        urlParameters.add(new BasicNameValuePair(CLIENT_ID_PARAM, consumerKey));
-        HttpPost request = new HttpPost(OAuth2Constant.ACCESS_TOKEN_ENDPOINT);
-        request.setHeader(CommonConstants.USER_AGENT_HEADER, OAuth2Constant.USER_AGENT);
-        request.setHeader(OAuth2Constant.AUTHORIZATION_HEADER, OAuth2Constant.BASIC_HEADER + " " + Base64
-                .encodeBase64String((consumerKey + ":" + consumerSecret).getBytes()).trim());
-        request.setEntity(new UrlEncodedFormEntity(urlParameters));
-        HttpResponse response = client.execute(request);
-        BufferedReader rd = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
-        Object obj = JSONValue.parse(rd);
-        String error = ((JSONObject) obj).get("error").toString();
+        JSONObject obj = fireTokenRequest();
+        String error = obj.get("error").toString();
         Assert.assertNotNull(error, "error is null");
     }
 
@@ -230,26 +218,27 @@ public class OAuth2DeviceFlowTestCase extends OAuth2ServiceAbstractIntegrationTe
         EntityUtils.consume(response.getEntity());
     }
 
-    @Test(groups = "wso2.is", description = "Send approval post request", dependsOnMethods = "testSendApprovalPost")
+    @Test(groups = "wso2.is", description = "Send token post request", dependsOnMethods = "testSendApprovalPost")
     public void testTokenRequest() throws Exception {
 
-        List<NameValuePair> urlParameters = new ArrayList<>();
-        urlParameters.add(new BasicNameValuePair(OAuth2Constant.GRANT_TYPE_NAME,
-                "urn:ietf:params:oauth:grant-type:device_code"));
-        urlParameters.add(new BasicNameValuePair(DEVICE_CODE, deviceCode));
-        urlParameters.add(new BasicNameValuePair(CLIENT_ID_PARAM, consumerKey));
-        HttpPost request = new HttpPost(OAuth2Constant.ACCESS_TOKEN_ENDPOINT);
-        request.setHeader(CommonConstants.USER_AGENT_HEADER, OAuth2Constant.USER_AGENT);
-        request.setEntity(new UrlEncodedFormEntity(urlParameters));
-        HttpResponse response = client.execute(request);
-        BufferedReader rd = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
-        Object obj = JSONValue.parse(rd);
-        String accessToken = ((JSONObject) obj).get("access_token").toString();
+        // Wait 5 seconds because of the token polling interval.
+        Thread.sleep(5000);
+        JSONObject obj = fireTokenRequest();
+        String accessToken = obj.get("access_token").toString();
         Assert.assertNotNull(accessToken, "Assess token is null");
     }
 
-    @Test(groups = "wso2.is", description = "Send approval post request", dependsOnMethods = "testTokenRequest")
+    @Test(groups = "wso2.is", description = "Send token post request with used code", dependsOnMethods = "testTokenRequest")
     public void testExpiredDeviceTokenRequest() throws Exception {
+
+        // Wait 5 seconds because of the token polling interval.
+        Thread.sleep(5000);
+        JSONObject obj = fireTokenRequest();
+        String error = obj.get("error").toString();
+        Assert.assertEquals(error, "expired_token");
+    }
+
+    private JSONObject fireTokenRequest() throws IOException {
 
         List<NameValuePair> urlParameters = new ArrayList<>();
         urlParameters.add(new BasicNameValuePair(OAuth2Constant.GRANT_TYPE_NAME,
@@ -258,19 +247,11 @@ public class OAuth2DeviceFlowTestCase extends OAuth2ServiceAbstractIntegrationTe
         urlParameters.add(new BasicNameValuePair(CLIENT_ID_PARAM, consumerKey));
         HttpPost request = new HttpPost(OAuth2Constant.ACCESS_TOKEN_ENDPOINT);
         request.setHeader(CommonConstants.USER_AGENT_HEADER, OAuth2Constant.USER_AGENT);
-        request.setHeader(OAuth2Constant.AUTHORIZATION_HEADER, OAuth2Constant.BASIC_HEADER + " " + Base64
-                .encodeBase64String((consumerKey + ":" + consumerSecret).getBytes()).trim());
         request.setEntity(new UrlEncodedFormEntity(urlParameters));
         HttpResponse response = client.execute(request);
-        int status = response.getStatusLine().getStatusCode();
-        Assert.assertEquals(response.getStatusLine().getStatusCode(), HttpStatus.SC_BAD_REQUEST);
         BufferedReader rd = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
-        Object obj = JSONValue.parse(rd);
-        String error = ((JSONObject) obj).get("error").toString();
-        Assert.assertNotNull(error, "error is null");
+        return (JSONObject)JSONValue.parse(rd);
     }
-
-
 
     private JSONObject responseObjectNew(List<NameValuePair> postParameters, String uri) throws Exception {
 
