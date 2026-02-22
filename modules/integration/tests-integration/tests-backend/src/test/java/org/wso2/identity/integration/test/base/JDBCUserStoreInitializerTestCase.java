@@ -23,31 +23,46 @@ import org.testng.annotations.BeforeTest;
 import org.wso2.carbon.integration.common.utils.mgt.ServerConfigurationManager;
 import org.wso2.carbon.utils.CarbonUtils;
 import org.wso2.identity.integration.common.utils.ISIntegrationTest;
+import org.wso2.identity.integration.common.utils.ISServerConfiguration;
+import org.wso2.identity.integration.common.utils.DockerServerConfigurationManager;
 
 import java.io.File;
 
 public class JDBCUserStoreInitializerTestCase extends ISIntegrationTest {
 
     private ServerConfigurationManager scm;
+    private DockerServerConfigurationManager dockerScm;
     private File defaultConfigFile;
 
     @BeforeTest(alwaysRun = true)
     public void initUserStoreConfig() throws Exception {
 
         super.init();
-        String carbonHome = CarbonUtils.getCarbonHome();
-        defaultConfigFile = getDeploymentTomlFile(carbonHome);
         File userMgtConfigFile = new File(getISResourceLocation() + File.separator + "userMgt"
                 + File.separator + "jdbc_user_mgt_config.toml");
-        scm = new ServerConfigurationManager(isServer);
-        scm.applyConfiguration(userMgtConfigFile, defaultConfigFile, true, true);
+
+        if (ISServerConfiguration.isDockerMode()) {
+            dockerScm = new DockerServerConfigurationManager();
+            dockerScm.applyConfiguration(userMgtConfigFile);
+            super.init();
+        } else {
+            String carbonHome = CarbonUtils.getCarbonHome();
+            defaultConfigFile = getDeploymentTomlFile(carbonHome);
+            scm = new ServerConfigurationManager(isServer);
+            scm.applyConfiguration(userMgtConfigFile, defaultConfigFile, true, true);
+        }
     }
 
     @AfterTest(alwaysRun = true)
     public void resetUserstoreConfig() throws Exception {
 
-        super.init();
-        scm.restoreToLastConfiguration(false);
+        if (ISServerConfiguration.isDockerMode()) {
+            dockerScm.restoreToLastConfiguration(true);
+            super.init();
+        } else {
+            super.init();
+            scm.restoreToLastConfiguration(false);
+        }
     }
 
 }

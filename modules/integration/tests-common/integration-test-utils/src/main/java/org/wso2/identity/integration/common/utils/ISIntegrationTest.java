@@ -62,6 +62,74 @@ public class ISIntegrationTest {
     }
 
     protected void init(TestUserMode userMode) throws Exception {
+        if (ISServerConfiguration.isDockerMode() || DockerTestEnvironment.shouldUseDockerMode()) {
+            DockerTestEnvironment.ensureInitialized();
+            initDockerMode(userMode);
+        } else {
+            initLegacyMode(userMode);
+        }
+    }
+
+    private void initDockerMode(TestUserMode userMode) throws Exception {
+        ISServerConfiguration config = ISServerConfiguration.getInstance();
+        backendURL = config.getBackendUrl();
+        serverURL = config.getServerUrl();
+
+        // Create AutomationContext for tenant/user metadata. 110+ test constructors
+        // access isServer.getContextTenant() for admin credentials and tenant domain.
+        // We override URLs with Docker values but need isServer populated.
+        try {
+            isServer = new AutomationContext("IDENTITY", userMode);
+        } catch (Exception e) {
+            log.warn("Could not create AutomationContext in Docker mode: " + e.getMessage()
+                    + ". Tests that access isServer directly may fail.");
+        }
+
+        // Use the cached session cookie/placeholder from DockerContainerListener.
+        // In WSO2 IS 7.x, SOAP admin services (AuthenticationAdmin) are not available.
+        // REST tests use Basic auth (authenticatingUserName/authenticatingCredential),
+        // not session cookies. The placeholder prevents NPE in code that checks for null.
+        sessionCookie = config.getSessionCookie();
+        if (sessionCookie == null) {
+            log.warn("No cached session cookie — setting placeholder for Docker mode.");
+            sessionCookie = "docker-rest-mode";
+        }
+
+        // Set tenant/user info from AutomationContext if available, otherwise build manually.
+        // In Docker mode, override the context user to tenant admin. Even though test users
+        // (testuser11, etc.) are provisioned with Administrator role, some management API
+        // operations (e.g., reading inbound protocol configs) require the admin user.
+        if (isServer != null) {
+            tenantInfo = isServer.getContextTenant();
+            tenantInfo.setContextUser(tenantInfo.getTenantAdmin());
+            userInfo = tenantInfo.getContextUser();
+        } else {
+            User adminUser = new User();
+            adminUser.setKey("superTenant");
+            adminUser.setUserName(config.getAdminUsername());
+            adminUser.setPassword(config.getAdminPassword());
+
+            tenantInfo = new Tenant();
+            tenantInfo.setDomain(MultitenantConstants.SUPER_TENANT_DOMAIN_NAME);
+            tenantInfo.setTenantAdmin(adminUser);
+            tenantInfo.setContextUser(adminUser);
+            tenantInfo.addTenantUsers(adminUser);
+
+            userInfo = adminUser;
+        }
+
+        // Always override context URLs with Docker-resolved values.
+        identityContextUrls = new ContextUrls();
+        identityContextUrls.setBackEndUrl(backendURL);
+        identityContextUrls.setServiceUrl(config.getBaseUrl());
+        identityContextUrls.setSecureServiceUrl(config.getBaseUrl());
+        identityContextUrls.setWebAppURL("http://" + config.getHostname());
+        identityContextUrls.setWebAppURLHttps(config.getBaseUrl());
+
+        log.info("Docker mode initialized — backendURL: " + backendURL);
+    }
+
+    private void initLegacyMode(TestUserMode userMode) throws Exception {
         isServer = new AutomationContext("IDENTITY", userMode);
         backendURL = isServer.getContextUrls().getBackEndUrl();
         serverURL = backendURL.replace("services/", "");
@@ -73,6 +141,13 @@ public class ISIntegrationTest {
     }
 
     protected void init(String instance, String domainKey, String userKey) throws Exception {
+        if (ISServerConfiguration.isDockerMode() || DockerTestEnvironment.shouldUseDockerMode()) {
+            DockerTestEnvironment.ensureInitialized();
+            // In Docker mode, SOAP services (LoginLogoutClient) are not available.
+            // Delegate to the standard Docker mode initialization.
+            initDockerMode(TestUserMode.SUPER_TENANT_ADMIN);
+            return;
+        }
         isServer = new AutomationContext("IDENTITY", instance, domainKey, userKey);
         loginLogoutClient = new LoginLogoutClient(isServer);
         sessionCookie = loginLogoutClient.login();
@@ -80,8 +155,13 @@ public class ISIntegrationTest {
         serverURL = backendURL.replace("services/", "");
     }
 
-    protected String login() throws Exception{
-        return  new AuthenticatorClient(backendURL).login(isServer.getSuperTenant().getTenantAdmin().getUserName(),
+    protected String login() throws Exception {
+        if (ISServerConfiguration.isDockerMode()) {
+            // SOAP AuthenticationAdmin is not available in Docker mode (IS 7.x).
+            // Return the placeholder session cookie.
+            return sessionCookie != null ? sessionCookie : "docker-rest-mode";
+        }
+        return new AuthenticatorClient(backendURL).login(isServer.getSuperTenant().getTenantAdmin().getUserName(),
                 isServer.getSuperTenant().getTenantAdmin().getPassword(),
                 isServer.getInstance().getHosts().get("default"));
     }
@@ -102,10 +182,16 @@ public class ISIntegrationTest {
     }
 
     protected String getBackendURL() throws XPathExpressionException {
+        if (ISServerConfiguration.isDockerMode()) {
+            return ISServerConfiguration.getInstance().getBackendUrl();
+        }
         return isServer.getContextUrls().getBackEndUrl();
     }
 
     protected String getServiceURL() throws XPathExpressionException {
+        if (ISServerConfiguration.isDockerMode()) {
+            return ISServerConfiguration.getInstance().getBaseUrl();
+        }
         return isServer.getContextUrls().getServiceUrl();
     }
 
@@ -213,6 +299,10 @@ public class ISIntegrationTest {
      * @return The base URL.
      */
     private String getBaseURL() throws XPathExpressionException {
+
+        if (ISServerConfiguration.isDockerMode()) {
+            return ISServerConfiguration.getInstance().getBaseUrl();
+        }
 
         Instance instance = isServer.getInstance();
         String httpsPort = isServer.getInstance().getPorts().get(PRODUCT_GROUP_PORT_HTTPS);

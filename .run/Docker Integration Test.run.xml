@@ -1,0 +1,58 @@
+<component name="ProjectRunConfigurationManager">
+  <!--
+    Shared IntelliJ run configuration for Docker-based integration tests.
+    This is a DEFAULT TEMPLATE (default="true") — all new TestNG run configurations
+    inherit these settings. When you right-click a test class and choose "Run",
+    IntelliJ creates a config based on this template.
+
+    How to run individual test classes from IntelliJ:
+    1. Build the product ZIP (one-time): mvn clean install -Dmaven.test.skip=true
+    2. Ensure Docker is running (Docker Desktop, Rancher Desktop, or Colima)
+    3. Right-click any test class → Run (it will use this template automatically)
+    4. First run: ~2-3 min (builds Docker image). Subsequent runs: ~30-60s.
+    5. Re-run the same test: ~2-5s (container already running from initialized image).
+
+    How it works:
+    - VM_PARAMETERS sets -Dtest.docker.mode=true, -Dcarbon.zip, -Ddocker.dockerfile
+    - LISTENERS registers DockerContainerListener which starts the container,
+      provisions users/tenants, and configures SSL before any test runs.
+    - Docker socket auto-detection supports Docker Desktop, Rancher Desktop, Colima
+      without needing DOCKER_HOST environment variable.
+
+    Server-side debugging:
+    - Add -Dtest.docker.debug=true to VM options
+    - Port 5005 will be exposed from the container
+    - Attach IntelliJ remote debug to localhost:<mapped-port> (shown in test output)
+
+    Note: Tests that need Tomcat (SAML/SSO) or LDAP require the full suite via Maven.
+    The Batch 1 OAuth2 tests work with just this config (REST API only).
+  -->
+  <configuration default="true" type="TestNG" factoryName="TestNG">
+    <module name="org.wso2.carbon.identity.integration.backend.test" />
+    <option name="MAIN_CLASS_NAME" value="" />
+    <option name="METHOD_NAME" value="" />
+    <option name="GROUP_NAME" value="" />
+    <option name="TEST_OBJECT" value="CLASS" />
+    <option name="VM_PARAMETERS" value="-Dtest.docker.mode=true -Dcarbon.zip=$PROJECT_DIR$/modules/distribution/target/wso2is-7.3.0-m1-SNAPSHOT.zip -Ddocker.dockerfile=$PROJECT_DIR$/modules/distribution/src/main/docker/Dockerfile -Dframework.resource.location=$PROJECT_DIR$/modules/integration/tests-integration/tests-backend/src/test/resources/ -Dserver.list=IS -Xmx1536m -XX:+HeapDumpOnOutOfMemoryError --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.xml/jdk.xml.internal=ALL-UNNAMED --add-opens=java.base/java.io=ALL-UNNAMED --add-opens=java.base/sun.nio.fs=ALL-UNNAMED --add-opens=java.naming/com.sun.jndi.ldap=ALL-UNNAMED --add-opens=java.base/sun.security.util=ALL-UNNAMED --add-opens=java.base/java.security=ALL-UNNAMED --add-opens=java.base/sun.security.rsa=ALL-UNNAMED --add-opens=java.base/java.security.cert=ALL-UNNAMED --add-opens=java.rmi/sun.rmi.transport=ALL-UNNAMED" />
+    <option name="PARAMETERS" value="" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/modules/integration/tests-integration/tests-backend" />
+    <option name="OUTPUT_DIRECTORY" value="" />
+    <option name="SUITE_NAME" value="" />
+    <option name="TEST_NAME" value="" />
+    <option name="PACKAGE_NAME" value="" />
+    <option name="LISTENERS" value="org.wso2.identity.integration.test.listeners.DockerContainerListener,org.wso2.identity.integration.test.listeners.IdentityTestListener,org.wso2.identity.integration.test.base.SMTPServerInitializerListener" />
+    <envs>
+      <env name="SHARED_DATABASE_DRIVER" value="org.h2.Driver" />
+      <env name="SHARED_DATABASE_URL" value="jdbc:h2:./repository/database/WSO2SHARED_DB;DB_CLOSE_ON_EXIT=FALSE" />
+      <env name="SHARED_DATABASE_USERNAME" value="wso2carbon" />
+      <env name="SHARED_DATABASE_PASSWORD" value="wso2carbon" />
+      <env name="IDENTITY_DATABASE_DRIVER" value="org.h2.Driver" />
+      <env name="IDENTITY_DATABASE_URL" value="jdbc:h2:./repository/database/WSO2IDENTITY_DB;DB_CLOSE_ON_EXIT=FALSE" />
+      <env name="IDENTITY_DATABASE_USERNAME" value="wso2carbon" />
+      <env name="IDENTITY_DATABASE_PASSWORD" value="wso2carbon" />
+    </envs>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

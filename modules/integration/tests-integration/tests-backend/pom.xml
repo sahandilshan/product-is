@@ -214,6 +214,257 @@
                 </plugins>
             </build>
         </profile>
+        <profile>
+            <!--Docker-based integration test profile using Testcontainers-->
+            <!--Usage: mvn clean install -DdockerTests -->
+            <id>docker-integration</id>
+            <activation>
+                <property>
+                    <name>dockerTests</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <inherited>false</inherited>
+                        <version>2.22.1</version>
+                        <configuration>
+                            <argLine>-Xmx1536m -XX:+HeapDumpOnOutOfMemoryError
+                                -Dorg.apache.jasper.compiler.disablejsr199=true
+                                --add-opens=java.base/java.lang=ALL-UNNAMED
+                                --add-opens=java.base/java.util=ALL-UNNAMED
+                                --add-opens java.xml/jdk.xml.internal=ALL-UNNAMED
+                                --add-opens=java.base/java.io=ALL-UNNAMED
+                                --add-opens=java.base/sun.nio.fs=ALL-UNNAMED
+                                --add-opens=java.naming/com.sun.jndi.ldap=ALL-UNNAMED
+                                --add-opens=java.base/sun.security.util=ALL-UNNAMED
+                                --add-opens=java.base/java.security=ALL-UNNAMED
+                                --add-opens=java.base/sun.security.rsa=ALL-UNNAMED
+                                --add-opens=java.base/java.security.cert=ALL-UNNAMED
+                                --add-opens=java.rmi/sun.rmi.transport=ALL-UNNAMED
+                            </argLine>
+                            <suiteXmlFiles>
+                                <suiteXmlFile>src/test/resources/testng-docker.xml</suiteXmlFile>
+                            </suiteXmlFiles>
+                            <failIfNoTests>true</failIfNoTests>
+
+                            <classpathDependencyExcludes>
+                                <classpathDependencyExclude>org.wso2.org.ops4j.pax.logging:pax-logging-api
+                                </classpathDependencyExclude>
+                                <classpathDependencyExclude>org.ops4j.pax.logging:pax-logging-api
+                                </classpathDependencyExclude>
+                            </classpathDependencyExcludes>
+                            <systemProperties>
+                                <property>
+                                    <name>maven.test.haltafterfailure</name>
+                                    <value>false</value>
+                                </property>
+                                <property>
+                                    <name>test.docker.mode</name>
+                                    <value>true</value>
+                                </property>
+                                <property>
+                                    <name>carbon.zip</name>
+                                    <value>
+                                        ${basedir}/../../../distribution/target/wso2is-${project.version}.zip
+                                    </value>
+                                </property>
+                                <property>
+                                    <name>docker.dockerfile</name>
+                                    <value>
+                                        ${basedir}/../../../distribution/src/main/docker/Dockerfile
+                                    </value>
+                                </property>
+                                <property>
+                                    <name>samples.dir</name>
+                                    <value>${basedir}/../../../../samples/product</value>
+                                </property>
+                                <property>
+                                    <name>framework.resource.location</name>
+                                    <value>
+                                        ${basedir}/src/test/resources/
+                                    </value>
+                                </property>
+                                <property>
+                                    <name>server.list</name>
+                                    <value>
+                                        IS
+                                    </value>
+                                </property>
+                                <property>
+                                    <name>usedefaultlisteners</name>
+                                    <value>false</value>
+                                </property>
+                                <sec.verifier.dir>${basedir}/target/security-verifier/</sec.verifier.dir>
+                                <emma.home>${basedir}/target/emma</emma.home>
+                                <instr.file>${basedir}/src/test/resources/instrumentation.txt</instr.file>
+                                <filters.file>${basedir}/src/test/resources/filters.txt</filters.file>
+                                <emma.output>${basedir}/target/emma</emma.output>
+                                <java.util.logging.manager>org.apache.logging.log4j.jul.LogManager
+                                </java.util.logging.manager>
+                            </systemProperties>
+                            <environmentVariables>
+                                <SHARED_DATABASE_DRIVER>org.h2.Driver</SHARED_DATABASE_DRIVER>
+                                <SHARED_DATABASE_URL>
+                                    jdbc:h2:./repository/database/WSO2SHARED_DB;DB_CLOSE_ON_EXIT=FALSE
+                                </SHARED_DATABASE_URL>
+                                <SHARED_DATABASE_USERNAME>wso2carbon</SHARED_DATABASE_USERNAME>
+                                <SHARED_DATABASE_PASSWORD>wso2carbon</SHARED_DATABASE_PASSWORD>
+                                <IDENTITY_DATABASE_DRIVER>org.h2.Driver</IDENTITY_DATABASE_DRIVER>
+                                <IDENTITY_DATABASE_URL>
+                                    jdbc:h2:./repository/database/WSO2IDENTITY_DB;DB_CLOSE_ON_EXIT=FALSE
+                                </IDENTITY_DATABASE_URL>
+                                <IDENTITY_DATABASE_USERNAME>wso2carbon</IDENTITY_DATABASE_USERNAME>
+                                <IDENTITY_DATABASE_PASSWORD>wso2carbon</IDENTITY_DATABASE_PASSWORD>
+                                <AGENTIDENTITY_DATABASE_DRIVER>org.h2.Driver</AGENTIDENTITY_DATABASE_DRIVER>
+                                <AGENTIDENTITY_DATABASE_URL>
+                                    jdbc:h2:./repository/database/WSO2AGENTIDENTITY_DB;DB_CLOSE_ON_EXIT=FALSE;LOCK_TIMEOUT=60000
+                                </AGENTIDENTITY_DATABASE_URL>
+                                <AGENTIDENTITY_DATABASE_USERNAME>wso2carbon</AGENTIDENTITY_DATABASE_USERNAME>
+                                <AGENTIDENTITY_DATABASE_PASSWORD>wso2carbon</AGENTIDENTITY_DATABASE_PASSWORD>
+                            </environmentVariables>
+                            <workingDirectory>${basedir}/target</workingDirectory>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <!--Docker-based parallel integration test profile using Testcontainers-->
+            <!--Usage: mvn clean install -DdockerTestParallel=3 (runs 3 forks, each with its own container)-->
+            <id>docker-integration-parallel</id>
+            <activation>
+                <property>
+                    <name>dockerTestParallel</name>
+                </property>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <inherited>false</inherited>
+                        <version>2.22.1</version>
+                        <configuration>
+                            <argLine>-Xmx1536m -XX:+HeapDumpOnOutOfMemoryError
+                                -Dorg.apache.jasper.compiler.disablejsr199=true
+                                -Dsurefire.forkNumber=${surefire.forkNumber}
+                                --add-opens=java.base/java.lang=ALL-UNNAMED
+                                --add-opens=java.base/java.util=ALL-UNNAMED
+                                --add-opens java.xml/jdk.xml.internal=ALL-UNNAMED
+                                --add-opens=java.base/java.io=ALL-UNNAMED
+                                --add-opens=java.base/sun.nio.fs=ALL-UNNAMED
+                                --add-opens=java.naming/com.sun.jndi.ldap=ALL-UNNAMED
+                                --add-opens=java.base/sun.security.util=ALL-UNNAMED
+                                --add-opens=java.base/java.security=ALL-UNNAMED
+                                --add-opens=java.base/sun.security.rsa=ALL-UNNAMED
+                                --add-opens=java.base/java.security.cert=ALL-UNNAMED
+                                --add-opens=java.rmi/sun.rmi.transport=ALL-UNNAMED
+                            </argLine>
+                            <!-- Use includes-based discovery instead of suiteXmlFiles
+                                 so surefire splits test classes across forks rather than
+                                 running the complete suite in every fork. -->
+                            <includes>
+                                <include>**/test/oauth2/*TestCase.java</include>
+                                <include>**/test/oauth2/*Test.java</include>
+                                <include>**/test/oidc/*TestCase.java</include>
+                                <include>**/test/oidc/*Test.java</include>
+                                <include>**/test/scim2/*TestCase.java</include>
+                                <include>**/test/consent/*TestCase.java</include>
+                                <include>**/test/rest/api/**/*Test.java</include>
+                                <include>**/test/rest/api/**/*TestBase.java</include>
+                            </includes>
+                            <forkCount>${dockerTestParallel}</forkCount>
+                            <reuseForks>true</reuseForks>
+                            <failIfNoTests>true</failIfNoTests>
+                            <properties>
+                                <property>
+                                    <name>listener</name>
+                                    <value>org.wso2.identity.integration.test.listeners.DockerContainerListener,org.wso2.identity.integration.test.listeners.IdentityTestListener,org.wso2.identity.integration.test.base.SMTPServerInitializerListener</value>
+                                </property>
+                            </properties>
+
+                            <classpathDependencyExcludes>
+                                <classpathDependencyExclude>org.wso2.org.ops4j.pax.logging:pax-logging-api
+                                </classpathDependencyExclude>
+                                <classpathDependencyExclude>org.ops4j.pax.logging:pax-logging-api
+                                </classpathDependencyExclude>
+                            </classpathDependencyExcludes>
+                            <systemProperties>
+                                <property>
+                                    <name>maven.test.haltafterfailure</name>
+                                    <value>false</value>
+                                </property>
+                                <property>
+                                    <name>test.docker.mode</name>
+                                    <value>true</value>
+                                </property>
+                                <property>
+                                    <name>carbon.zip</name>
+                                    <value>
+                                        ${basedir}/../../../distribution/target/wso2is-${project.version}.zip
+                                    </value>
+                                </property>
+                                <property>
+                                    <name>docker.dockerfile</name>
+                                    <value>
+                                        ${basedir}/../../../distribution/src/main/docker/Dockerfile
+                                    </value>
+                                </property>
+                                <property>
+                                    <name>samples.dir</name>
+                                    <value>${basedir}/../../../../samples/product</value>
+                                </property>
+                                <property>
+                                    <name>framework.resource.location</name>
+                                    <value>
+                                        ${basedir}/src/test/resources/
+                                    </value>
+                                </property>
+                                <property>
+                                    <name>server.list</name>
+                                    <value>
+                                        IS
+                                    </value>
+                                </property>
+                                <property>
+                                    <name>usedefaultlisteners</name>
+                                    <value>false</value>
+                                </property>
+                                <sec.verifier.dir>${basedir}/target/security-verifier/</sec.verifier.dir>
+                                <emma.home>${basedir}/target/emma</emma.home>
+                                <instr.file>${basedir}/src/test/resources/instrumentation.txt</instr.file>
+                                <filters.file>${basedir}/src/test/resources/filters.txt</filters.file>
+                                <emma.output>${basedir}/target/emma</emma.output>
+                                <java.util.logging.manager>org.apache.logging.log4j.jul.LogManager
+                                </java.util.logging.manager>
+                            </systemProperties>
+                            <environmentVariables>
+                                <SHARED_DATABASE_DRIVER>org.h2.Driver</SHARED_DATABASE_DRIVER>
+                                <SHARED_DATABASE_URL>
+                                    jdbc:h2:./repository/database/WSO2SHARED_DB;DB_CLOSE_ON_EXIT=FALSE
+                                </SHARED_DATABASE_URL>
+                                <SHARED_DATABASE_USERNAME>wso2carbon</SHARED_DATABASE_USERNAME>
+                                <SHARED_DATABASE_PASSWORD>wso2carbon</SHARED_DATABASE_PASSWORD>
+                                <IDENTITY_DATABASE_DRIVER>org.h2.Driver</IDENTITY_DATABASE_DRIVER>
+                                <IDENTITY_DATABASE_URL>
+                                    jdbc:h2:./repository/database/WSO2IDENTITY_DB;DB_CLOSE_ON_EXIT=FALSE
+                                </IDENTITY_DATABASE_URL>
+                                <IDENTITY_DATABASE_USERNAME>wso2carbon</IDENTITY_DATABASE_USERNAME>
+                                <IDENTITY_DATABASE_PASSWORD>wso2carbon</IDENTITY_DATABASE_PASSWORD>
+                                <AGENTIDENTITY_DATABASE_DRIVER>org.h2.Driver</AGENTIDENTITY_DATABASE_DRIVER>
+                                <AGENTIDENTITY_DATABASE_URL>
+                                    jdbc:h2:./repository/database/WSO2AGENTIDENTITY_DB;DB_CLOSE_ON_EXIT=FALSE;LOCK_TIMEOUT=60000
+                                </AGENTIDENTITY_DATABASE_URL>
+                                <AGENTIDENTITY_DATABASE_USERNAME>wso2carbon</AGENTIDENTITY_DATABASE_USERNAME>
+                                <AGENTIDENTITY_DATABASE_PASSWORD>wso2carbon</AGENTIDENTITY_DATABASE_PASSWORD>
+                            </environmentVariables>
+                            <workingDirectory>${basedir}/target</workingDirectory>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 
     <build>
@@ -1135,6 +1386,12 @@
             <groupId>javax.servlet</groupId>
             <artifactId>javax.servlet-api</artifactId>
             <scope>provided</scope>
+        </dependency>
+        <!-- Testcontainers for Docker-based integration testing -->
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 </project>

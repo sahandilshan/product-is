@@ -22,9 +22,12 @@ import com.google.gson.GsonBuilder;
 
 import java.io.IOException;
 import java.net.URI;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+
+import javax.net.ssl.SSLContext;
 
 import org.apache.http.Header;
 import org.apache.http.NameValuePair;
@@ -36,6 +39,8 @@ import org.apache.http.client.methods.HttpPatch;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
@@ -61,7 +66,25 @@ public class RestBaseClient {
     public CloseableHttpClient client;
 
     public RestBaseClient() {
-        client = HttpClients.createDefault();
+        client = createHttpClient();
+    }
+
+    /**
+     * Creates an HttpClient that respects the JVM default SSLContext.
+     * In Docker mode, DockerContainerListener sets a trust-all SSLContext as the JVM default.
+     * HttpClients.createDefault() ignores this and creates its own SSLContext from the system
+     * truststore, causing SSLHandshakeException. This method explicitly uses SSLContext.getDefault().
+     */
+    private static CloseableHttpClient createHttpClient() {
+
+        try {
+            SSLContext sslContext = SSLContext.getDefault();
+            SSLConnectionSocketFactory sslFactory = new SSLConnectionSocketFactory(
+                    sslContext, NoopHostnameVerifier.INSTANCE);
+            return HttpClients.custom().setSSLSocketFactory(sslFactory).build();
+        } catch (NoSuchAlgorithmException e) {
+            return HttpClients.createDefault();
+        }
     }
 
     /**

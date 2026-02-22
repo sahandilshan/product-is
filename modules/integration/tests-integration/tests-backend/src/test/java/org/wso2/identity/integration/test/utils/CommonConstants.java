@@ -17,12 +17,31 @@
 */
 package org.wso2.identity.integration.test.utils;
 
+import org.wso2.identity.integration.common.utils.ISServerConfiguration;
+
 public class CommonConstants {
 
     public static final int IS_DEFAULT_OFFSET = 410;
     public static final int IS_DEFAULT_HTTPS_PORT = 9853;
     public static final int DEFAULT_TOMCAT_PORT = 8490;
-    public static final String DEFAULT_SERVICE_URL = "https://localhost:9853/services/";
+    // Lazy-initialized to avoid class-load-time call to ISServerConfiguration.getInstance()
+    // which may not be initialized yet when this class is loaded.
+    private static volatile String defaultServiceUrl;
+
+    public static String getDefaultServiceUrl() {
+        if (defaultServiceUrl == null) {
+            defaultServiceUrl = getServiceUrl();
+        }
+        return defaultServiceUrl;
+    }
+
+    /**
+     * @deprecated Use {@link #getDefaultServiceUrl()} instead. This constant triggers eager
+     * static initialization which can crash in Docker mode if ISServerConfiguration is not
+     * yet initialized. Kept for backward compatibility in legacy mode only.
+     */
+    @Deprecated
+    public static final String DEFAULT_SERVICE_URL = "https://localhost:" + IS_DEFAULT_HTTPS_PORT + "/services/";
     public static final String SAML_REQUEST_PARAM = "SAMLRequest";
     public static final String SAML_RESPONSE_PARAM = "SAMLResponse";
     public static final String SESSION_DATA_KEY = "name=\"sessionDataKey\"";
@@ -38,6 +57,33 @@ public class CommonConstants {
         USER_MANAGEMENT_CLIENT
     }
 
+    /**
+     * Returns the HTTPS port — Docker container's mapped port or the default 9853.
+     */
+    public static int getHttpsPort() {
+        if (ISServerConfiguration.isDockerMode()) {
+            return ISServerConfiguration.getInstance().getHttpsPort();
+        }
+        return IS_DEFAULT_HTTPS_PORT;
+    }
 
+    /**
+     * Returns the base URL — Docker container's URL or the default https://localhost:9853.
+     */
+    public static String getBaseUrl() {
+        if (ISServerConfiguration.isDockerMode()) {
+            return ISServerConfiguration.getInstance().getBaseUrl();
+        }
+        return "https://localhost:" + IS_DEFAULT_HTTPS_PORT;
+    }
 
+    /**
+     * Returns the service URL — Docker container's URL + /services/ or the default.
+     */
+    public static String getServiceUrl() {
+        if (ISServerConfiguration.isDockerMode()) {
+            return ISServerConfiguration.getInstance().getBackendUrl();
+        }
+        return "https://localhost:" + IS_DEFAULT_HTTPS_PORT + "/services/";
+    }
 }

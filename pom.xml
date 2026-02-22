@@ -2608,6 +2608,20 @@
                 <version>${carbon.identity.openid4vc.version}</version>
                 <type>zip</type>
             </dependency>
+            <!-- Testcontainers BOM for consistent version management -->
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers-bom</artifactId>
+                <version>${testcontainers.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Required by Testcontainers — overrides old 2.2 from Carbon TAF transitive deps -->
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${commons.io.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -2972,6 +2986,10 @@
         <nimbus-jose-jwt.version>9.41.2</nimbus-jose-jwt.version>
         
         <maven.compiler.plugin.version>3.14.1</maven.compiler.plugin.version>
+
+        <!-- Testcontainers -->
+        <testcontainers.version>1.20.4</testcontainers.version>
+        <commons.io.version>2.16.1</commons.io.version>
     </properties>
 
     <repositories>

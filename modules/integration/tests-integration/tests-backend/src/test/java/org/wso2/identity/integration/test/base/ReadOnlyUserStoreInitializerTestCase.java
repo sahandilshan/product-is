@@ -26,6 +26,8 @@ import org.wso2.carbon.integration.common.utils.exceptions.AutomationUtilExcepti
 import org.wso2.carbon.integration.common.utils.mgt.ServerConfigurationManager;
 import org.wso2.identity.integration.common.clients.UserManagementClient;
 import org.wso2.identity.integration.common.utils.ISIntegrationTest;
+import org.wso2.identity.integration.common.utils.ISServerConfiguration;
+import org.wso2.identity.integration.common.utils.DockerServerConfigurationManager;
 import org.wso2.identity.integration.test.util.Utils;
 import org.wso2.identity.integration.test.utils.ISTestUtils;
 
@@ -40,6 +42,7 @@ import javax.xml.xpath.XPathExpressionException;
 public class ReadOnlyUserStoreInitializerTestCase extends ISIntegrationTest {
 
     private ServerConfigurationManager scm;
+    private DockerServerConfigurationManager dockerScm;
     private File defaultConfigFile;
     private UserManagementClient userMgtClient;
     private AuthenticatorClient authenticatorClient;
@@ -51,36 +54,81 @@ public class ReadOnlyUserStoreInitializerTestCase extends ISIntegrationTest {
     public void initUserStoreConfig() throws Exception {
 
         super.init();
-        applyTomlConfigsAndRestart("ldap_user_mgt_config.toml");
-        scm.restoreToLastConfiguration(false);
 
-        super.init(TestUserMode.SUPER_TENANT_ADMIN);
-        userMgtClient = new UserManagementClient(backendURL, getSessionCookie());
-        authenticatorClient = new AuthenticatorClient(backendURL);
+        if (ISServerConfiguration.isDockerMode()) {
+            dockerScm = new DockerServerConfigurationManager();
 
-        userMgtClient.addRole(newUserRole, null, new String[]{"/permission/admin/login"});
-        userMgtClient.addUser(newUserName, newUserPassword, new String[]{newUserRole}, null);
+            // Step 1: Apply LDAP (read-write) config and restart.
+            File ldapConfigFile = new File(getISResourceLocation() + File.separator + "userMgt"
+                    + File.separator + "ldap_user_mgt_config.toml");
+            dockerScm.applyConfiguration(ldapConfigFile);
+            super.init();
 
-        applyTomlConfigsAndRestart("read_only_ldap_user_mgt_config.toml");
+            // Step 2: Create the test user and role while LDAP is read-write.
+            super.init(TestUserMode.SUPER_TENANT_ADMIN);
+            userMgtClient = new UserManagementClient(backendURL, getSessionCookie());
+            authenticatorClient = new AuthenticatorClient(backendURL);
+            userMgtClient.addRole(newUserRole, null, new String[]{"/permission/admin/login"});
+            userMgtClient.addUser(newUserName, newUserPassword, new String[]{newUserRole}, null);
+
+            // Step 3: Apply read-only LDAP config and restart.
+            File readOnlyConfigFile = new File(getISResourceLocation() + File.separator + "userMgt"
+                    + File.separator + "read_only_ldap_user_mgt_config.toml");
+            dockerScm.applyConfiguration(readOnlyConfigFile);
+            super.init();
+        } else {
+            applyTomlConfigsAndRestart("ldap_user_mgt_config.toml");
+            scm.restoreToLastConfiguration(false);
+
+            super.init(TestUserMode.SUPER_TENANT_ADMIN);
+            userMgtClient = new UserManagementClient(backendURL, getSessionCookie());
+            authenticatorClient = new AuthenticatorClient(backendURL);
+
+            userMgtClient.addRole(newUserRole, null, new String[]{"/permission/admin/login"});
+            userMgtClient.addUser(newUserName, newUserPassword, new String[]{newUserRole}, null);
+
+            applyTomlConfigsAndRestart("read_only_ldap_user_mgt_config.toml");
+        }
     }
 
     @AfterTest(alwaysRun = true)
     public void resetUserStoreConfig() throws Exception {
 
-        scm.restoreToLastConfiguration(false);
-        applyTomlConfigsAndRestart("ldap_user_mgt_config.toml");
+        if (ISServerConfiguration.isDockerMode()) {
+            // Restore to LDAP read-write config for cleanup.
+            File ldapConfigFile = new File(getISResourceLocation() + File.separator + "userMgt"
+                    + File.separator + "ldap_user_mgt_config.toml");
+            dockerScm.applyConfiguration(ldapConfigFile);
 
-        super.init(TestUserMode.SUPER_TENANT_ADMIN);
-        userMgtClient = new UserManagementClient(backendURL, getSessionCookie());
+            super.init(TestUserMode.SUPER_TENANT_ADMIN);
+            userMgtClient = new UserManagementClient(backendURL, getSessionCookie());
 
-        if (ISTestUtils.nameExists(userMgtClient.listAllUsers(newUserName, 10), newUserName)) {
-            userMgtClient.deleteUser(newUserName);
+            if (ISTestUtils.nameExists(userMgtClient.listAllUsers(newUserName, 10), newUserName)) {
+                userMgtClient.deleteUser(newUserName);
+            }
+            if (userMgtClient.roleNameExists(newUserRole)) {
+                userMgtClient.deleteRole(newUserRole);
+            }
+
+            // Restore to original config.
+            dockerScm.restoreToLastConfiguration(true);
+            super.init();
+        } else {
+            scm.restoreToLastConfiguration(false);
+            applyTomlConfigsAndRestart("ldap_user_mgt_config.toml");
+
+            super.init(TestUserMode.SUPER_TENANT_ADMIN);
+            userMgtClient = new UserManagementClient(backendURL, getSessionCookie());
+
+            if (ISTestUtils.nameExists(userMgtClient.listAllUsers(newUserName, 10), newUserName)) {
+                userMgtClient.deleteUser(newUserName);
+            }
+
+            if (userMgtClient.roleNameExists(newUserRole)) {
+                userMgtClient.deleteRole(newUserRole);
+            }
+            scm.restoreToLastConfiguration(true);
         }
-
-        if (userMgtClient.roleNameExists(newUserRole)) {
-            userMgtClient.deleteRole(newUserRole);
-        }
-        scm.restoreToLastConfiguration(true);
     }
 
     private void applyTomlConfigsAndRestart(String deploymentTomlFile) throws AutomationUtilException, XPathExpressionException, IOException {

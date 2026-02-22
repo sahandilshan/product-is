@@ -28,6 +28,8 @@ import org.wso2.carbon.automation.extensions.servers.utils.ServerLogReader;
 import org.wso2.carbon.integration.common.utils.exceptions.AutomationUtilException;
 import org.wso2.carbon.integration.common.utils.mgt.ServerConfigurationManager;
 import org.wso2.carbon.utils.CarbonUtils;
+import org.wso2.identity.integration.common.utils.ISServerConfiguration;
+import org.wso2.identity.integration.common.utils.DockerServerConfigurationManager;
 import org.wso2.identity.integration.test.util.Utils;
 
 /**
@@ -36,6 +38,7 @@ import org.wso2.identity.integration.test.util.Utils;
 public class NashornAdaptiveScriptInitializerTestCase extends AbstractAdaptiveAuthenticationTestCase {
 
     private ServerConfigurationManager serverConfigurationManager;
+    private DockerServerConfigurationManager dockerScm;
 
     private int javaVersion;
 
@@ -43,24 +46,42 @@ public class NashornAdaptiveScriptInitializerTestCase extends AbstractAdaptiveAu
     public void testInit() throws Exception {
 
         super.init();
-        serverConfigurationManager = new ServerConfigurationManager(isServer);
-        String carbonHome = CarbonUtils.getCarbonHome();
-        File defaultConfigFile = getDeploymentTomlFile(carbonHome);
 
         javaVersion = Utils.getJavaVersion();
         String identityNewResourceFileName = "nashorn_script_engine_config.toml";
 
-        if (javaVersion >= 15) {
-            // Download OpenJDK Nashorn only if the JDK version is Higher or Equal to 15.
-            runAdaptiveAuthenticationDependencyScript(false, serverConfigurationManager, log);
-            identityNewResourceFileName = "openjdknashorn_script_engine_config.toml";
-        }
+        if (ISServerConfiguration.isDockerMode()) {
+            dockerScm = new DockerServerConfigurationManager();
 
-        File scriptEngineConfigFile = new File(
-                getISResourceLocation() + File.separator + "scriptEngine" + File.separator +
-                        identityNewResourceFileName);
-        serverConfigurationManager.applyConfigurationWithoutRestart(scriptEngineConfigFile, defaultConfigFile, true);
-        serverConfigurationManager.restartGracefully();
+            if (javaVersion >= 15) {
+                identityNewResourceFileName = "openjdknashorn_script_engine_config.toml";
+                // In Docker mode, the adaptive script downloads JARs to the host carbon.home mirror.
+                // We then copy them into the container and restart.
+                runAdaptiveAuthenticationDependencyScript(false, null, log);
+            }
+
+            File scriptEngineConfigFile = new File(
+                    getISResourceLocation() + File.separator + "scriptEngine" + File.separator +
+                            identityNewResourceFileName);
+            dockerScm.applyConfiguration(scriptEngineConfigFile);
+            super.init();
+        } else {
+            serverConfigurationManager = new ServerConfigurationManager(isServer);
+            String carbonHome = CarbonUtils.getCarbonHome();
+            File defaultConfigFile = getDeploymentTomlFile(carbonHome);
+
+            if (javaVersion >= 15) {
+                // Download OpenJDK Nashorn only if the JDK version is Higher or Equal to 15.
+                runAdaptiveAuthenticationDependencyScript(false, serverConfigurationManager, log);
+                identityNewResourceFileName = "openjdknashorn_script_engine_config.toml";
+            }
+
+            File scriptEngineConfigFile = new File(
+                    getISResourceLocation() + File.separator + "scriptEngine" + File.separator +
+                            identityNewResourceFileName);
+            serverConfigurationManager.applyConfigurationWithoutRestart(scriptEngineConfigFile, defaultConfigFile, true);
+            serverConfigurationManager.restartGracefully();
+        }
     }
 
     protected static void runAdaptiveAuthenticationDependencyScript(boolean disable, ServerConfigurationManager scm, Log logger) {
@@ -144,12 +165,17 @@ public class NashornAdaptiveScriptInitializerTestCase extends AbstractAdaptiveAu
     @AfterTest(alwaysRun = true)
     public void resetScriptEngineConfig() throws Exception {
 
-        super.init();
-        serverConfigurationManager.restoreToLastConfiguration(false);
-        javaVersion = (javaVersion == 0) ? Utils.getJavaVersion() : javaVersion;
-        if (javaVersion >= 15) {
-            runAdaptiveAuthenticationDependencyScript(true, serverConfigurationManager, log);
+        if (ISServerConfiguration.isDockerMode()) {
+            dockerScm.restoreToLastConfiguration(true);
+            super.init();
+        } else {
+            super.init();
+            serverConfigurationManager.restoreToLastConfiguration(false);
+            javaVersion = (javaVersion == 0) ? Utils.getJavaVersion() : javaVersion;
+            if (javaVersion >= 15) {
+                runAdaptiveAuthenticationDependencyScript(true, serverConfigurationManager, log);
+            }
+            restartServer();
         }
-        restartServer();
     }
 }

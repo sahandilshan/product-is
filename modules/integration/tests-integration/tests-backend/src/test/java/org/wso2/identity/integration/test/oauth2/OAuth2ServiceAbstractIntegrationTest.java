@@ -54,6 +54,7 @@ import org.wso2.identity.integration.common.clients.application.mgt.ApplicationM
 import org.wso2.identity.integration.common.clients.oauth.OauthAdminClient;
 import org.wso2.identity.integration.common.clients.usermgt.remote.RemoteUserStoreManagerServiceClient;
 import org.wso2.identity.integration.common.utils.ISIntegrationTest;
+import org.wso2.identity.integration.common.utils.ISServerConfiguration;
 import org.wso2.identity.integration.test.oauth2.dataprovider.model.ApplicationConfig;
 import org.wso2.identity.integration.test.oauth2.dataprovider.model.UserClaimConfig;
 import org.wso2.identity.integration.test.rest.api.server.api.resource.v1.model.APIResourceListItem;
@@ -144,9 +145,14 @@ public class OAuth2ServiceAbstractIntegrationTest extends ISIntegrationTest {
 	protected void init(TestUserMode userMode) throws Exception {
 
 		super.init(userMode);
-		appMgtclient = new ApplicationManagementServiceClient(sessionCookie, backendURL, null);
-		adminClient = new OauthAdminClient(backendURL, sessionCookie);
-		remoteUSMServiceClient = new RemoteUserStoreManagerServiceClient(backendURL, sessionCookie);
+		// SOAP admin services (ApplicationManagementService, OAuthAdminService,
+		// RemoteUserStoreManagerService) were removed in WSO2 IS 7.x.
+		// Only create SOAP stubs in legacy (non-Docker) mode.
+		if (!ISServerConfiguration.isDockerMode()) {
+			appMgtclient = new ApplicationManagementServiceClient(sessionCookie, backendURL, null);
+			adminClient = new OauthAdminClient(backendURL, sessionCookie);
+			remoteUSMServiceClient = new RemoteUserStoreManagerServiceClient(backendURL, sessionCookie);
+		}
 		restClient = new OAuth2RestClient(serverURL, tenantInfo);
 	}
 
@@ -532,6 +538,12 @@ public class OAuth2ServiceAbstractIntegrationTest extends ISIntegrationTest {
 
 	public OAuthConsumerAppDTO createApplication(OAuthConsumerAppDTO appDTO, String serviceProviderName)
 			throws Exception {
+
+		if (ISServerConfiguration.isDockerMode()) {
+			throw new UnsupportedOperationException(
+					"SOAP-based createApplication(OAuthConsumerAppDTO) is not supported in Docker mode. "
+							+ "Use addApplication(ApplicationModel) with the REST client instead.");
+		}
 
 		OAuthConsumerAppDTO appDtoResult = null;
 
@@ -942,6 +954,11 @@ public class OAuth2ServiceAbstractIntegrationTest extends ISIntegrationTest {
 	 */
 	public void deleteApplication() throws Exception {
 
+		if (ISServerConfiguration.isDockerMode()) {
+			throw new UnsupportedOperationException(
+					"SOAP-based deleteApplication() is not supported in Docker mode. "
+							+ "Use deleteApp(appId) with the REST client instead.");
+		}
 		appMgtclient.deleteApplication(SERVICE_PROVIDER_NAME);
 	}
 
@@ -962,6 +979,11 @@ public class OAuth2ServiceAbstractIntegrationTest extends ISIntegrationTest {
 	 */
 	public void removeOAuthApplicationData() throws Exception {
 
+		if (ISServerConfiguration.isDockerMode()) {
+			throw new UnsupportedOperationException(
+					"SOAP-based removeOAuthApplicationData() is not supported in Docker mode. "
+							+ "Use deleteApp(appId) with the REST client instead.");
+		}
 		adminClient.removeOAuthApplicationData(consumerKey);
 	}
 
@@ -1143,6 +1165,11 @@ public class OAuth2ServiceAbstractIntegrationTest extends ISIntegrationTest {
 															   AssociatedRolesConfig associatedRolesConfig)
 			throws Exception {
 
+		if (ISServerConfiguration.isDockerMode()) {
+			throw new UnsupportedOperationException(
+					"SOAP-based generateServiceProviderWithRoles() is not supported in Docker mode. "
+							+ "Use addApplication(ApplicationModel) with the REST client instead.");
+		}
 		adminClient.registerOAuthApplicationData(appDTO);
 		OAuthConsumerAppDTO oauthConsumerApp = adminClient.getOAuthAppByName(appDTO.getApplicationName());
 		consumerKey = oauthConsumerApp.getOauthConsumerKey();
@@ -1180,6 +1207,11 @@ public class OAuth2ServiceAbstractIntegrationTest extends ISIntegrationTest {
 
 	protected ServiceProvider generateServiceProvider(OAuthConsumerAppDTO appDTO) throws Exception {
 
+		if (ISServerConfiguration.isDockerMode()) {
+			throw new UnsupportedOperationException(
+					"SOAP-based generateServiceProvider() is not supported in Docker mode. "
+							+ "Use addApplication(ApplicationModel) with the REST client instead.");
+		}
 		adminClient.registerOAuthApplicationData(appDTO);
 
 		OAuthConsumerAppDTO oauthConsumerApp = adminClient.getOAuthAppByName(appDTO.getApplicationName());

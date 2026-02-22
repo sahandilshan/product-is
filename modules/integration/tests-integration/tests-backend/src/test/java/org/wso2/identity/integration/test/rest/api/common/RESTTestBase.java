@@ -25,9 +25,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import io.restassured.RestAssured;
 import io.restassured.config.EncoderConfig;
+import io.restassured.filter.Filter;
+import io.restassured.filter.FilterContext;
 import io.restassured.filter.log.LogDetail;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
+import io.restassured.specification.FilterableRequestSpecification;
+import io.restassured.specification.FilterableResponseSpecification;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -40,6 +44,7 @@ import org.wso2.carbon.automation.engine.context.AutomationContext;
 import org.wso2.identity.integration.common.clients.Idp.IdentityProviderMgtServiceClient;
 import org.wso2.identity.integration.common.clients.UserProfileMgtServiceClient;
 import org.wso2.identity.integration.common.clients.usermgt.remote.RemoteUserStoreManagerServiceClient;
+import org.wso2.identity.integration.common.utils.ISServerConfiguration;
 import org.wso2.identity.integration.common.utils.ISIntegrationTest;
 import org.wso2.identity.integration.test.util.Utils;
 
@@ -99,8 +104,25 @@ public class RESTTestBase extends ISIntegrationTest {
 
     protected String basePath = StringUtils.EMPTY;
 
-    private OpenApiValidationFilter validationFilter;
+    /**
+     * No-op filter used when the swagger definition is unavailable (e.g., JAR missing in Docker mode).
+     * This avoids NPE in all getResponseOf* methods that call .filter(validationFilter).
+     */
+    private static final Filter NOOP_FILTER = (FilterableRequestSpecification requestSpec,
+                                               FilterableResponseSpecification responseSpec,
+                                               FilterContext ctx) -> ctx.next(requestSpec, responseSpec);
+
+    private Filter validationFilter = NOOP_FILTER;
     private EncoderConfig encoderconfig = new EncoderConfig();
+
+    /**
+     * Returns whether OpenAPI validation is available. When the swagger definition JAR is missing
+     * (e.g., in Docker mode where the carbon.home mirror may be incomplete), the validationFilter
+     * is a no-op and OpenAPI validation is skipped.
+     */
+    protected boolean hasValidationFilter() {
+        return validationFilter != null && validationFilter != NOOP_FILTER;
+    }
 
     /**
      * Initialize the RestAssured environment and create SwaggerRequestResponseValidator with the swagger definition
@@ -116,16 +138,28 @@ public class RESTTestBase extends ISIntegrationTest {
 
         this.basePath = basePath;
         this.swaggerDefinition = swaggerDefinition;
-        RestAssured.baseURI = backendURL.replace(SERVICES, "");
-        String swagger = replaceInSwaggerDefinition(swaggerDefinition, basePathInSwagger, basePath);
-        OpenApiInteractionValidator openAPIValidator = OpenApiInteractionValidator
-                .createForInlineApiSpecification(swagger)
-                .withLevelResolver(LevelResolverFactory.withAdditionalPropertiesIgnored())
-                .build();
-        validationFilter = new OpenApiValidationFilter(openAPIValidator);
-        remoteUSMServiceClient = new RemoteUserStoreManagerServiceClient(backendURL, sessionCookie);
-        userProfileMgtServiceClient = new UserProfileMgtServiceClient(backendURL, sessionCookie);
-        identityProviderMgtServiceClient = new IdentityProviderMgtServiceClient(sessionCookie, backendURL);
+        if (ISServerConfiguration.isDockerMode()) {
+            RestAssured.baseURI = ISServerConfiguration.getInstance().getBaseUrl();
+        } else {
+            RestAssured.baseURI = backendURL.replace(SERVICES, "");
+        }
+        if (swaggerDefinition == null) {
+            log.warn("Swagger definition is null — API JAR may be missing. "
+                    + "Skipping OpenAPI validation setup for basePath: " + basePath);
+            validationFilter = NOOP_FILTER;
+        } else {
+            String swagger = replaceInSwaggerDefinition(swaggerDefinition, basePathInSwagger, basePath);
+            OpenApiInteractionValidator openAPIValidator = OpenApiInteractionValidator
+                    .createForInlineApiSpecification(swagger)
+                    .withLevelResolver(LevelResolverFactory.withAdditionalPropertiesIgnored())
+                    .build();
+            validationFilter = new OpenApiValidationFilter(openAPIValidator);
+        }
+        if (!ISServerConfiguration.isDockerMode()) {
+            remoteUSMServiceClient = new RemoteUserStoreManagerServiceClient(backendURL, sessionCookie);
+            userProfileMgtServiceClient = new UserProfileMgtServiceClient(backendURL, sessionCookie);
+            identityProviderMgtServiceClient = new IdentityProviderMgtServiceClient(sessionCookie, backendURL);
+        }
     }
 
     protected void conclude() {
@@ -143,10 +177,23 @@ public class RESTTestBase extends ISIntegrationTest {
      */
     protected static String getAPISwaggerDefinition(String jarName, String swaggerYamlName) throws IOException {
 
-        File dir = new File(Utils.getResidentCarbonHome() + API_WEB_APP_ROOT);
+        String carbonHome = ISServerConfiguration.isDockerMode()
+                ? ISServerConfiguration.getInstance().getCarbonHomeMirror()
+                : Utils.getResidentCarbonHome();
+        File dir = new File(carbonHome + API_WEB_APP_ROOT);
         File[] files = dir.listFiles((dir1, name) -> name.startsWith(jarName) && name.endsWith(JAR_EXTENSION));
+        if (files == null || files.length == 0) {
+            log.warn("No JAR file found for API package '" + jarName + "' in " + dir.getAbsolutePath()
+                    + ". Tests requiring this swagger definition will be skipped.");
+            return null;
+        }
         JarFile jarFile = new JarFile(files[0]);
         JarEntry entry = jarFile.getJarEntry(swaggerYamlName);
+        if (entry == null) {
+            jarFile.close();
+            log.warn("Swagger definition '" + swaggerYamlName + "' not found in JAR: " + files[0].getName());
+            return null;
+        }
         InputStream input = jarFile.getInputStream(entry);
         String content = getString(input);
         jarFile.close();

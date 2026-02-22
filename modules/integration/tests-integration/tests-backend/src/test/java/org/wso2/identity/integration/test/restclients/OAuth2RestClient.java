@@ -37,6 +37,8 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang.StringUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.http.Header;
 import org.apache.http.HttpResponse;
 import org.apache.http.HttpStatus;
@@ -101,6 +103,7 @@ import static org.wso2.identity.integration.test.utils.OAuth2Constant.USER_AGENT
 
 public class OAuth2RestClient extends RestBaseClient {
 
+    private static final Log LOG = LogFactory.getLog(OAuth2RestClient.class);
     private static final String API_SERVER_BASE_PATH = "api/server/v1";
     private static final String SCIM_V2_PATH = "scim2/v2";
     private static final String APPLICATION_MANAGEMENT_PATH = "/applications";
@@ -503,9 +506,34 @@ public class OAuth2RestClient extends RestBaseClient {
         String endPointUrl = applicationManagementApiBasePath + PATH_SEPARATOR + appId + INBOUND_PROTOCOLS_BASE_PATH +
                 PATH_SEPARATOR + inboundType;
 
-        try (CloseableHttpResponse response = getResponseOfHttpGet(endPointUrl, getHeaders())) {
-            return EntityUtils.toString(response.getEntity());
+        // Retry on 500 — in Docker mode, some server-side services (e.g., OIDC inbound protocol)
+        // may not be fully initialized even after the "WSO2 Carbon started" log message appears.
+        // 10 retries x 5s = 50s max wait, which covers the worst-case initialization delay.
+        int maxRetries = 10;
+        int retryIntervalMs = 5000;
+        String lastBody = null;
+        int lastStatusCode = 0;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try (CloseableHttpResponse response = getResponseOfHttpGet(endPointUrl, getHeaders())) {
+                lastStatusCode = response.getStatusLine().getStatusCode();
+                lastBody = EntityUtils.toString(response.getEntity());
+                if (lastStatusCode >= 200 && lastStatusCode < 300) {
+                    return lastBody;
+                }
+                if (lastStatusCode == 500 && attempt < maxRetries) {
+                    LOG.warn("GET " + endPointUrl + " => HTTP 500 (attempt "
+                            + attempt + "/" + maxRetries + "), retrying in "
+                            + (retryIntervalMs / 1000) + "s...");
+                    Thread.sleep(retryIntervalMs);
+                    continue;
+                }
+                // Non-retryable error (4xx) or final retry exhausted.
+                throw new Exception("GET " + endPointUrl + " failed with HTTP " + lastStatusCode
+                        + ". Response: " + lastBody);
+            }
         }
+        throw new Exception("GET " + endPointUrl + " failed after " + maxRetries
+                + " retries. Last HTTP " + lastStatusCode + ". Response: " + lastBody);
     }
 
     private String getConfigOfOrganizationApp(String appId, String inboundType,

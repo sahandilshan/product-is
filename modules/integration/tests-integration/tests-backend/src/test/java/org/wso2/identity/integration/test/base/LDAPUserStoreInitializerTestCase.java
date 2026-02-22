@@ -23,6 +23,7 @@ import org.testng.annotations.BeforeTest;
 import org.wso2.carbon.integration.common.utils.mgt.ServerConfigurationManager;
 import org.wso2.carbon.utils.CarbonUtils;
 import org.wso2.identity.integration.common.utils.ISIntegrationTest;
+import org.wso2.identity.integration.common.utils.ISServerConfiguration;
 
 import java.io.File;
 
@@ -38,6 +39,11 @@ public class LDAPUserStoreInitializerTestCase extends ISIntegrationTest {
     public void initUserStoreConfig() throws Exception {
 
         super.init();
+        if (ISServerConfiguration.isDockerMode()) {
+            log.info("Docker mode — skipping LDAP user store config initialization "
+                    + "(CarbonUtils.getCarbonHome() and ServerConfigurationManager are not available).");
+            return;
+        }
         String carbonHome = CarbonUtils.getCarbonHome();
         defaultConfigFile = getDeploymentTomlFile(carbonHome);
         File userMgtConfigFile = new File(getISResourceLocation() + File.separator + "userMgt"
@@ -49,6 +55,10 @@ public class LDAPUserStoreInitializerTestCase extends ISIntegrationTest {
     @AfterTest(alwaysRun = true)
     public void resetUserstoreConfig() throws Exception {
 
+        if (ISServerConfiguration.isDockerMode()) {
+            log.info("Docker mode — skipping LDAP user store config reset.");
+            return;
+        }
         super.init();
         scm.restoreToLastConfiguration(false);
         scm.restartGracefully();

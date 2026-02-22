@@ -18,6 +18,8 @@
 
 package org.wso2.identity.integration.test.utils;
 
+import org.wso2.identity.integration.common.utils.ISServerConfiguration;
+
 /**
  * OAuth2 constant
  */
@@ -41,21 +43,24 @@ public final class OAuth2Constant {
     public final static String OAUTH_VERSION_2 = "OAuth-2.0";
     public static final String OAUTH_2 = "oauth2";
     public final static String REDIRECT_LOCATIONS = "http.protocol.redirect-locations";
-    public final static String ACCESS_TOKEN_ENDPOINT = "https://localhost:9853/oauth2/token";
-    public final static String TOKEN_REVOKE_ENDPOINT = "https://localhost:9853/oauth2/revoke";
-    public final static String OIDC_LOGOUT_ENDPOINT = "https://localhost:9853/oidc/logout";
-    public final static String PAR_ENDPOINT = "https://localhost:9853/oauth2/par";
-    public final static String OAUTH2_DEFAULT_ERROR_URL = "https://localhost:9853/authenticationendpoint/" +
-            "oauth2_error.do";
-    public final static String USER_INFO_ENDPOINT = "https://localhost:9853/oauth2/userinfo?schema=openid";
-    public final static String DATA_API_ENDPOINT = "https://localhost:9853/api/identity/auth/v1.1/data/OauthConsentKey/";
-    public final static String AUTHTOKEN_VALIDATE_SERVICE = CommonConstants.DEFAULT_SERVICE_URL + "OAuth2TokenValidationService";
-    public final static String COMMON_AUTH_URL = "https://localhost:9853/commonauth";
+    // These constants use the legacy hardcoded base URL to avoid class-load-time calls to
+    // ISServerConfiguration.getInstance() which crashes if not yet initialized.
+    // In Docker mode, use the dynamic method accessors (getAccessTokenEndpoint(), etc.) instead.
+    private static final String LEGACY_BASE_URL = "https://localhost:9853";
+    public static final String ACCESS_TOKEN_ENDPOINT = LEGACY_BASE_URL + "/oauth2/token";
+    public static final String TOKEN_REVOKE_ENDPOINT = LEGACY_BASE_URL + "/oauth2/revoke";
+    public static final String OIDC_LOGOUT_ENDPOINT = LEGACY_BASE_URL + "/oidc/logout";
+    public static final String PAR_ENDPOINT = LEGACY_BASE_URL + "/oauth2/par";
+    public static final String OAUTH2_DEFAULT_ERROR_URL = LEGACY_BASE_URL + "/authenticationendpoint/oauth2_error.do";
+    public static final String USER_INFO_ENDPOINT = LEGACY_BASE_URL + "/oauth2/userinfo?schema=openid";
+    public static final String DATA_API_ENDPOINT = LEGACY_BASE_URL + "/api/identity/auth/v1.1/data/OauthConsentKey/";
+    public static final String AUTHTOKEN_VALIDATE_SERVICE = "https://localhost:9853/services/" + "OAuth2TokenValidationService";
+    public static final String COMMON_AUTH_URL = LEGACY_BASE_URL + "/commonauth";
     public final static String USER_AGENT = "Apache-HttpClient/4.2.5 (java 1.6)";
-    public final static String AUTHORIZE_ENDPOINT_URL = "https://localhost:9853/oauth2/authorize";
-    public final static String APPROVAL_URL = "https://localhost:9853/oauth2/authorize";
+    public static final String AUTHORIZE_ENDPOINT_URL = LEGACY_BASE_URL + "/oauth2/authorize";
+    public static final String APPROVAL_URL = LEGACY_BASE_URL + "/oauth2/authorize";
     public final static String AUTHORIZE_PARAM = "Authorize";
-    public final static String TOKEN_VALIDATION_SERVICE_URL = CommonConstants.DEFAULT_SERVICE_URL + "OAuth2TokenValidationService";
+    public static final String TOKEN_VALIDATION_SERVICE_URL = "https://localhost:9853/services/" + "OAuth2TokenValidationService";
     public final static String HTTP_RESPONSE_HEADER_LOCATION = "location";
     public final static String OAUTH2_SCOPE_OPENID = "openid";
     public static final String OAUTH2_SCOPE_OPENID_WITH_INTERNAL_LOGIN = "openid internal_login";
@@ -106,14 +111,14 @@ public final class OAuth2Constant {
     public static final String OAUTH2_REDIRECT_URI = "redirect_uri";
     public static final String OAUTH2_SCOPE = "scope";
     public static final String OAUTH2_NONCE = "nonce";
-    public static final String INTRO_SPEC_ENDPOINT = "https://localhost:9853/oauth2/introspect";
-    public static final String TENANT_INTRO_SPEC_ENDPOINT = "https://localhost:9853/t/wso2.com/oauth2/introspect";
-    public static final String TENANT_USER_INFO_ENDPOINT = "https://localhost:9853/t/wso2.com/oauth2/userinfo?schema=openid";
-    public final static String TENANT_DATA_API_ENDPOINT = "https://localhost:9853/t/wso2.com/api/identity/auth/v1.1/data/OauthConsentKey/";
-    public final static String TENANT_TOKEN_REVOKE_ENDPOINT = "https://localhost:9853/t/wso2.com/oauth2/revoke";
+    public static final String INTRO_SPEC_ENDPOINT = LEGACY_BASE_URL + "/oauth2/introspect";
+    public static final String TENANT_INTRO_SPEC_ENDPOINT = LEGACY_BASE_URL + "/t/wso2.com/oauth2/introspect";
+    public static final String TENANT_USER_INFO_ENDPOINT = LEGACY_BASE_URL + "/t/wso2.com/oauth2/userinfo?schema=openid";
+    public static final String TENANT_DATA_API_ENDPOINT = LEGACY_BASE_URL + "/t/wso2.com/api/identity/auth/v1.1/data/OauthConsentKey/";
+    public static final String TENANT_TOKEN_REVOKE_ENDPOINT = LEGACY_BASE_URL + "/t/wso2.com/oauth2/revoke";
 
-    public static final String SCOPE_ENDPOINT = "https://localhost:9853/api/server/v1/oidc/scopes";
-    public static final String TENANT_SCOPE_ENDPOINT = "https://localhost:9853/t/wso2.com/api/server/v1/oidc/scopes";
+    public static final String SCOPE_ENDPOINT = LEGACY_BASE_URL + "/api/server/v1/oidc/scopes";
+    public static final String TENANT_SCOPE_ENDPOINT = LEGACY_BASE_URL + "/t/wso2.com/api/server/v1/oidc/scopes";
     public static final String OAUTH2_RESPONSE_MODE = "response_mode";
     public static final String RESPONSE_MODE_QUERY = "query";
     public static final String RESPONSE_MODE_FRAGMENT = "fragment";
@@ -126,11 +131,10 @@ public final class OAuth2Constant {
 
     // Tenanted urls.
     public final static String TENANT_PLACEHOLDER = "<TENANT_PLACEHOLDER>";
-    public final static String TENANT_COMMON_AUTH_URL = "https://localhost:9853/t/<TENANT_PLACEHOLDER>/commonauth";
-    public final static String TENANT_APPROVAL_URL = "https://localhost:9853/t/<TENANT_PLACEHOLDER>/oauth2/authorize";
-    public final static String TENANT_TOKEN_ENDPOINT = "https://localhost:9853/t/<TENANT_PLACEHOLDER>/oauth2/token";
-    public static final String TENANT_INTROSPECT_ENDPOINT =
-            "https://localhost:9853/t/<TENANT_PLACEHOLDER>/oauth2/introspect";
+    public static final String TENANT_COMMON_AUTH_URL = LEGACY_BASE_URL + "/t/<TENANT_PLACEHOLDER>/commonauth";
+    public static final String TENANT_APPROVAL_URL = LEGACY_BASE_URL + "/t/<TENANT_PLACEHOLDER>/oauth2/authorize";
+    public static final String TENANT_TOKEN_ENDPOINT = LEGACY_BASE_URL + "/t/<TENANT_PLACEHOLDER>/oauth2/token";
+    public static final String TENANT_INTROSPECT_ENDPOINT = LEGACY_BASE_URL + "/t/<TENANT_PLACEHOLDER>/oauth2/introspect";
 
     public static final String FIDP_PARAM = "fidp";
 
@@ -148,4 +152,39 @@ public final class OAuth2Constant {
 
     private OAuth2Constant() {
 	}
+
+    // --- Dynamic URL methods for Docker mode ---
+
+    private static String getBaseUrl() {
+        if (ISServerConfiguration.isDockerMode()) {
+            return ISServerConfiguration.getInstance().getBaseUrl();
+        }
+        return "https://localhost:9853";
+    }
+
+    public static String getOidcLogoutEndpoint() { return getBaseUrl() + "/oidc/logout"; }
+    public static String getAccessTokenEndpoint() { return getBaseUrl() + "/oauth2/token"; }
+    public static String getTokenRevokeEndpoint() { return getBaseUrl() + "/oauth2/revoke"; }
+    public static String getParEndpoint() { return getBaseUrl() + "/oauth2/par"; }
+    public static String getOAuth2DefaultErrorUrl() { return getBaseUrl() + "/authenticationendpoint/oauth2_error.do"; }
+    public static String getUserInfoEndpoint() { return getBaseUrl() + "/oauth2/userinfo?schema=openid"; }
+    public static String getDataApiEndpoint() { return getBaseUrl() + "/api/identity/auth/v1.1/data/OauthConsentKey/"; }
+    public static String getCommonAuthUrl() { return getBaseUrl() + "/commonauth"; }
+    public static String getAuthorizeEndpointUrl() { return getBaseUrl() + "/oauth2/authorize"; }
+    public static String getIntrospectEndpoint() { return getBaseUrl() + "/oauth2/introspect"; }
+    public static String getTenantIntrospectEndpoint() { return getBaseUrl() + "/t/wso2.com/oauth2/introspect"; }
+    public static String getTenantUserInfoEndpoint() { return getBaseUrl() + "/t/wso2.com/oauth2/userinfo?schema=openid"; }
+    public static String getTenantDataApiEndpoint() { return getBaseUrl() + "/t/wso2.com/api/identity/auth/v1.1/data/OauthConsentKey/"; }
+    public static String getTenantTokenRevokeEndpoint() { return getBaseUrl() + "/t/wso2.com/oauth2/revoke"; }
+    public static String getScopeEndpoint() { return getBaseUrl() + "/api/server/v1/oidc/scopes"; }
+    public static String getTenantScopeEndpoint() { return getBaseUrl() + "/t/wso2.com/api/server/v1/oidc/scopes"; }
+    public static String getTenantCommonAuthUrl(String tenant) { return getBaseUrl() + "/t/" + tenant + "/commonauth"; }
+    public static String getTenantApprovalUrl(String tenant) { return getBaseUrl() + "/t/" + tenant + "/oauth2/authorize"; }
+    public static String getTenantTokenEndpoint(String tenant) { return getBaseUrl() + "/t/" + tenant + "/oauth2/token"; }
+    public static String getTenantIntrospectEndpoint(String tenant) { return getBaseUrl() + "/t/" + tenant + "/oauth2/introspect"; }
+    public static String getTokenValidationServiceUrl() { return CommonConstants.getServiceUrl() + "OAuth2TokenValidationService"; }
+    public static String getTenantCommonAuthUrlForPlaceholder() { return getBaseUrl() + "/t/<TENANT_PLACEHOLDER>/commonauth"; }
+    public static String getTenantApprovalUrlForPlaceholder() { return getBaseUrl() + "/t/<TENANT_PLACEHOLDER>/oauth2/authorize"; }
+    public static String getTenantTokenEndpointForPlaceholder() { return getBaseUrl() + "/t/<TENANT_PLACEHOLDER>/oauth2/token"; }
+    public static String getTenantIntrospectEndpointForPlaceholder() { return getBaseUrl() + "/t/<TENANT_PLACEHOLDER>/oauth2/introspect"; }
 }

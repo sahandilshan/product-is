@@ -22,6 +22,8 @@ import org.testng.annotations.Test;
 import org.wso2.carbon.integration.common.utils.exceptions.AutomationUtilException;
 import org.wso2.carbon.integration.common.utils.mgt.ServerConfigurationManager;
 import org.wso2.carbon.utils.CarbonUtils;
+import org.wso2.identity.integration.common.utils.ISServerConfiguration;
+import org.wso2.identity.integration.common.utils.DockerServerConfigurationManager;
 
 import java.io.File;
 import java.io.IOException;
@@ -29,20 +31,26 @@ import java.io.IOException;
 public class JDBCUUIDUMTestCase extends AbstractUUIDUMTestCase {
 
     private ServerConfigurationManager scm;
+    private DockerServerConfigurationManager dockerScm;
 
     @BeforeClass(alwaysRun = true)
     public void initTest() throws Exception {
 
         super.init();
-
-        String carbonHome = CarbonUtils.getCarbonHome();
-        File defaultConfigFile = getDeploymentTomlFile(carbonHome);
         File userMgtConfigFile = new File(getISResourceLocation() + File.separator + "userMgt" + File.separator
                 + "jdbc_user_mgt_config.toml");
-        scm = new ServerConfigurationManager(isServer);
-        scm.applyConfiguration(userMgtConfigFile, defaultConfigFile, true, true);
 
-        super.init();
+        if (ISServerConfiguration.isDockerMode()) {
+            dockerScm = new DockerServerConfigurationManager();
+            dockerScm.applyConfiguration(userMgtConfigFile);
+            super.init();
+        } else {
+            String carbonHome = CarbonUtils.getCarbonHome();
+            File defaultConfigFile = getDeploymentTomlFile(carbonHome);
+            scm = new ServerConfigurationManager(isServer);
+            scm.applyConfiguration(userMgtConfigFile, defaultConfigFile, true, true);
+            super.init();
+        }
     }
 
     @Test
@@ -232,7 +240,15 @@ public class JDBCUUIDUMTestCase extends AbstractUUIDUMTestCase {
     @AfterClass
     public void deInit() throws IOException, AutomationUtilException {
 
-        scm.restoreToLastConfiguration(false);
+        if (ISServerConfiguration.isDockerMode()) {
+            try {
+                dockerScm.restoreToLastConfiguration(true);
+            } catch (Exception e) {
+                throw new AutomationUtilException("Failed to restore Docker configuration", e);
+            }
+        } else {
+            scm.restoreToLastConfiguration(false);
+        }
     }
 
 }

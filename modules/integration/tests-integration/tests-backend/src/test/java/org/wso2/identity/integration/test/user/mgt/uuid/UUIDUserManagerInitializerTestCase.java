@@ -24,6 +24,8 @@ import org.testng.annotations.AfterTest;
 import org.testng.annotations.BeforeTest;
 import org.wso2.carbon.integration.common.utils.mgt.ServerConfigurationManager;
 import org.wso2.identity.integration.common.utils.ISIntegrationTest;
+import org.wso2.identity.integration.common.utils.ISServerConfiguration;
+import org.wso2.identity.integration.common.utils.DockerServerConfigurationManager;
 
 import java.io.File;
 import java.net.URL;
@@ -32,6 +34,7 @@ public class UUIDUserManagerInitializerTestCase extends ISIntegrationTest {
 
     private static final Log log = LogFactory.getLog(UUIDUserManagerInitializerTestCase.class);
     private File uuidServiceJar;
+    private DockerServerConfigurationManager dockerScm;
 
     @BeforeTest(alwaysRun = true)
     public void initTest() throws Exception {
@@ -42,9 +45,16 @@ public class UUIDUserManagerInitializerTestCase extends ISIntegrationTest {
         uuidServiceJar = getServiceJar();
         log.info("Copying the service jar to the dropins folder before restarting the server.");
 
-        ServerConfigurationManager serverConfigurationManager = new ServerConfigurationManager(isServer);
-        serverConfigurationManager.copyToComponentDropins(uuidServiceJar);
-        serverConfigurationManager.restartGracefully();
+        if (ISServerConfiguration.isDockerMode()) {
+            dockerScm = new DockerServerConfigurationManager();
+            dockerScm.copyToComponentDropins(uuidServiceJar);
+            dockerScm.restartGracefully();
+            super.init();
+        } else {
+            ServerConfigurationManager serverConfigurationManager = new ServerConfigurationManager(isServer);
+            serverConfigurationManager.copyToComponentDropins(uuidServiceJar);
+            serverConfigurationManager.restartGracefully();
+        }
     }
 
     private File getServiceJar() {
@@ -59,7 +69,11 @@ public class UUIDUserManagerInitializerTestCase extends ISIntegrationTest {
     @AfterTest
     public void deInitTest() throws Exception {
 
-        ServerConfigurationManager serverConfigurationManager = new ServerConfigurationManager(isServer);
-        serverConfigurationManager.removeFromComponentDropins(uuidServiceJar.getName());
+        if (ISServerConfiguration.isDockerMode()) {
+            dockerScm.removeFromComponentDropins(uuidServiceJar.getName());
+        } else {
+            ServerConfigurationManager serverConfigurationManager = new ServerConfigurationManager(isServer);
+            serverConfigurationManager.removeFromComponentDropins(uuidServiceJar.getName());
+        }
     }
 }

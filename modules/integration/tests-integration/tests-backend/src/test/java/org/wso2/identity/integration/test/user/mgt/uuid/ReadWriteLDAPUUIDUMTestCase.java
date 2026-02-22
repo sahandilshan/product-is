@@ -21,32 +21,47 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 import org.wso2.carbon.integration.common.utils.mgt.ServerConfigurationManager;
 import org.wso2.carbon.utils.CarbonUtils;
+import org.wso2.identity.integration.common.utils.ISServerConfiguration;
+import org.wso2.identity.integration.common.utils.DockerServerConfigurationManager;
 
 import java.io.File;
 
 public class ReadWriteLDAPUUIDUMTestCase extends AbstractUUIDUMTestCase {
 
     private ServerConfigurationManager scm;
+    private DockerServerConfigurationManager dockerScm;
 
     @BeforeClass(alwaysRun = true)
     public void init() throws Exception {
 
         super.init();
-        String carbonHome = CarbonUtils.getCarbonHome();
-        File defaultConfigFile = getDeploymentTomlFile(carbonHome);
         File userMgtConfigFile = new File(getISResourceLocation() + File.separator + "userMgt"
                 + File.separator + "ldap_user_mgt_config.toml");
-        scm = new ServerConfigurationManager(isServer);
-        scm.applyConfiguration(userMgtConfigFile, defaultConfigFile, true, true);
-        scm.restartGracefully();
-        super.init();
+
+        if (ISServerConfiguration.isDockerMode()) {
+            dockerScm = new DockerServerConfigurationManager();
+            dockerScm.applyConfiguration(userMgtConfigFile);
+            super.init();
+        } else {
+            String carbonHome = CarbonUtils.getCarbonHome();
+            File defaultConfigFile = getDeploymentTomlFile(carbonHome);
+            scm = new ServerConfigurationManager(isServer);
+            scm.applyConfiguration(userMgtConfigFile, defaultConfigFile, true, true);
+            scm.restartGracefully();
+            super.init();
+        }
     }
 
     @AfterClass(alwaysRun = true)
     public void resetUserstoreConfig() throws Exception {
 
-        super.init();
-        scm.restoreToLastConfiguration(false);
+        if (ISServerConfiguration.isDockerMode()) {
+            dockerScm.restoreToLastConfiguration(true);
+            super.init();
+        } else {
+            super.init();
+            scm.restoreToLastConfiguration(false);
+        }
     }
 
     @Test
